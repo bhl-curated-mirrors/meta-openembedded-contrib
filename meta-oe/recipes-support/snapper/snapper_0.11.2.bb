@@ -12,17 +12,20 @@ SRC_URI = " \
     git://github.com/openSUSE/snapper.git;protocol=https;branch=master \
     file://0001-Include-linux-types.h-for-__u16-__u32-__u64-type.patch \
     file://0002-Use-statvfs-instead-of-statvfs64.patch \
+    file://0003-Makefile.am-allow-to-pass-PREFIX-LIBDIR-DATADIR-SYST.patch \
 "
 SRCREV = "6c603565f36e9996d85045c8012cd04aba5f3708"
 
 S = "${WORKDIR}/git"
 
-EXTRA_OECONF += "--disable-zypp"
+EXTRA_OECONF += "--disable-zypp --libdir=${libdir}"
 
 PACKAGECONFIG ?= "${@bb.utils.filter('DISTRO_FEATURES', 'api-documentation systemd pam', d)}"
 PACKAGECONFIG[pam] = "--enable-pam,--disable-pam,libpam"
 PACKAGECONFIG[systemd] = "--enable-systemd,--disable-systemd"
 PACKAGECONFIG[api-documentation] = "--enable-doc,--disable-doc,libxslt-native docbook-xsl-stylesheets-native"
+
+EXTRA_OEMAKE += "PREFIX=${prefix} LIBDIR=${libdir} DATADIR=${datadir} SYSTEMDDIR=${systemd_system_unitdir}"
 
 # Avoid HOSTTOOLS path in binaries
 export DIFFBIN = "${bindir}/diff"
@@ -36,6 +39,7 @@ do_install:append() {
 	install -m0644 ${S}/data/default-config ${D}${sysconfdir}/sysconfig/snapper
 }
 
-FILES:${PN} += "${libdir}/pam_snapper ${libdir}/systemd ${libdir}/security ${datadir}"
+FILES:${PN} += "${libdir}/pam_snapper ${libdir}/security ${datadir} ${systemd_system_unitdir}"
+
 # bash is needed for the testsuite
 RDEPENDS:${PN} = "bash diffutils util-linux util-linux-mount"

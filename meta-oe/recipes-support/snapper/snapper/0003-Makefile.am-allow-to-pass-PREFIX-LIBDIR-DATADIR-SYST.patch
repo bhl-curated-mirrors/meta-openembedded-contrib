@@ -1,0 +1,212 @@
+From 67c4bae7fce9157c40d538904c083e51acb77647 Mon Sep 17 00:00:00 2001
+From: Martin Jansa <martin.jansa@gmail.com>
+Date: Thu, 24 Oct 2024 12:42:23 +0200
+Subject: [PATCH] Makefile.am: allow to pass PREFIX, LIBDIR, DATADIR,
+ SYSTEMDDIR
+
+* Useful when building e.g. with libdir=/usr/lib32 which is respected
+  by pam security, but not here for other files
+
+* WIP because wasn't tested in runtime at all
+
+Upstream-Status: Pending [the libdir in code needs to be tested in runtime  first]
+Signed-off-by: Martin Jansa <martin.jansa@gmail.com>
+---
+ client/Makefile.am                            |  5 ++-
+ configure.ac                                  |  6 +++
+ data/Makefile.am                              | 39 +++++++++++--------
+ scripts/Makefile.am                           |  5 ++-
+ snapper/{Hooks.cc => Hooks.cc.in}             |  0
+ snapper/{PluginsImpl.cc => PluginsImpl.cc.in} |  4 +-
+ .../{SnapperDefines.h => SnapperDefines.h.in} |  2 +-
+ zypp-plugin/Makefile.am                       |  5 ++-
+ 8 files changed, 43 insertions(+), 23 deletions(-)
+ rename snapper/{Hooks.cc => Hooks.cc.in} (100%)
+ rename snapper/{PluginsImpl.cc => PluginsImpl.cc.in} (98%)
+ rename snapper/{SnapperDefines.h => SnapperDefines.h.in} (97%)
+
+diff --git a/client/Makefile.am b/client/Makefile.am
+index 80a2a41b..b77e8902 100644
+--- a/client/Makefile.am
++++ b/client/Makefile.am
+@@ -55,7 +55,10 @@ snapper_LDADD = 			\
+ 	../dbus/libdbus.la		\
+ 	$(JSONC_LIBS)
+ 
+-libexecdir = /usr/lib/snapper
++PREFIX ?= /usr
++LIBDIR ?= $(PREFIX)/lib
++
++libexecdir = $(LIBDIR)/snapper
+ 
+ libexec_PROGRAMS = systemd-helper
+ 
+diff --git a/configure.ac b/configure.ac
+index 899d4744..1c563df7 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -63,6 +63,8 @@ AS_IF([test "x$with_conf" != xno], [SYSCONFIG="${with_conf}"])
+ 
+ CPPFLAGS="${CPPFLAGS} -DCONF_DIR='\"${SYSCONFIG}\"'"
+ 
++LIBDIR=${libdir}
++
+ PAM_SECURITY=${libdir}/security
+ 
+ AC_ARG_WITH([pam-security], AS_HELP_STRING([--pam-security], [Use a custom pam security directory (default is $libdir/security)]),
+@@ -202,6 +204,7 @@ AC_SUBST(LIBVERSION_MINOR)
+ AC_SUBST(LIBVERSION_PATCHLEVEL)
+ AC_SUBST(LIBVERSION_INFO)
+ AC_SUBST(SYSCONFIG)
++AC_SUBST(LIBDIR)
+ AC_SUBST(PAM_SECURITY)
+ AC_SUBST(docdir)
+ 
+@@ -228,6 +231,9 @@ AC_CONFIG_FILES([
+ 	doc/snapper-zypp-plugin.conf.xml:doc/snapper-zypp-plugin.conf.xml.in
+ 	doc/pam_snapper.xml:doc/pam_snapper.xml.in
+ 	doc/mksubvolume.xml:doc/mksubvolume.xml.in
++	snapper/Hooks.cc:snapper/Hooks.cc.in
++	snapper/PluginsImpl.cc:snapper/PluginsImpl.cc.in
++	snapper/SnapperDefines.h:snapper/SnapperDefines.h.in
+ 	po/Makefile
+ 	testsuite/Makefile
+ 	testsuite-real/Makefile
+diff --git a/data/Makefile.am b/data/Makefile.am
+index 114be4d0..ea0d7484 100644
+--- a/data/Makefile.am
++++ b/data/Makefile.am
+@@ -7,34 +7,39 @@ EXTRA_DIST = sysconfig.snapper base.txt lvm.txt x11.txt snapper.logrotate	\
+ 	zypp-plugin.conf timeline.service timeline.timer cleanup.service	\
+ 	cleanup.timer boot.service boot.timer snapperd.service
+ 
++PREFIX ?= /usr
++LIBDIR ?= $(PREFIX)/lib
++DATADIR ?= $(PREFIX)/share
++SYSTEMDDIR ?= $(LIBDIR)/systemd/system
++
+ install-data-local:
+ 	install -D -m 644 snapper.logrotate $(DESTDIR)/etc/logrotate.d/snapper
+ 
+ 	install -d -m 755 $(DESTDIR)/etc/snapper/configs
+ 
+-	install -d -m 755 $(DESTDIR)/usr/lib/snapper/plugins
++	install -d -m 755 $(DESTDIR)$(LIBDIR)/snapper/plugins
+ 
+-	install -d -m 755 $(DESTDIR)/usr/share/snapper/config-templates
+-	install -D -m 644 default-config $(DESTDIR)/usr/share/snapper/config-templates/default
++	install -d -m 755 $(DESTDIR)$(DATADIR)/snapper/config-templates
++	install -D -m 644 default-config $(DESTDIR)$(DATADIR)/snapper/config-templates/default
+ 
+-	install -d -m 755 $(DESTDIR)/usr/share/snapper/filters
+-	install -D -m 644 base.txt $(DESTDIR)/usr/share/snapper/filters/base.txt
+-	install -D -m 644 lvm.txt $(DESTDIR)/usr/share/snapper/filters/lvm.txt
+-	install -D -m 644 x11.txt $(DESTDIR)/usr/share/snapper/filters/x11.txt
++	install -d -m 755 $(DESTDIR)$(DATADIR)/snapper/filters
++	install -D -m 644 base.txt $(DESTDIR)$(DATADIR)/snapper/filters/base.txt
++	install -D -m 644 lvm.txt $(DESTDIR)$(DATADIR)/snapper/filters/lvm.txt
++	install -D -m 644 x11.txt $(DESTDIR)$(DATADIR)/snapper/filters/x11.txt
+ 
+-	install -D -m 644 org.opensuse.Snapper.conf $(DESTDIR)/usr/share/dbus-1/system.d/org.opensuse.Snapper.conf
+-	install -D -m 644 org.opensuse.Snapper.service $(DESTDIR)/usr/share/dbus-1/system-services/org.opensuse.Snapper.service
++	install -D -m 644 org.opensuse.Snapper.conf $(DESTDIR)$(DATADIR)/dbus-1/system.d/org.opensuse.Snapper.conf
++	install -D -m 644 org.opensuse.Snapper.service $(DESTDIR)$(DATADIR)/dbus-1/system-services/org.opensuse.Snapper.service
+ 
+ if ENABLE_SYSTEMD
+-	install -D -m 644 timeline.service $(DESTDIR)/usr/lib/systemd/system/snapper-timeline.service
+-	install -D -m 644 timeline.timer $(DESTDIR)/usr/lib/systemd/system/snapper-timeline.timer
+-	install -D -m 644 cleanup.service $(DESTDIR)/usr/lib/systemd/system/snapper-cleanup.service
+-	install -D -m 644 cleanup.timer $(DESTDIR)/usr/lib/systemd/system/snapper-cleanup.timer
+-	install -D -m 644 boot.service $(DESTDIR)/usr/lib/systemd/system/snapper-boot.service
+-	install -D -m 644 boot.timer $(DESTDIR)/usr/lib/systemd/system/snapper-boot.timer
+-	install -D -m 644 snapperd.service $(DESTDIR)/usr/lib/systemd/system/snapperd.service
++	install -D -m 644 timeline.service $(DESTDIR)$(SYSTEMDDIR)/snapper-timeline.service
++	install -D -m 644 timeline.timer $(DESTDIR)$(SYSTEMDDIR)/snapper-timeline.timer
++	install -D -m 644 cleanup.service $(DESTDIR)$(SYSTEMDDIR)/snapper-cleanup.service
++	install -D -m 644 cleanup.timer $(DESTDIR)$(SYSTEMDDIR)/snapper-cleanup.timer
++	install -D -m 644 boot.service $(DESTDIR)$(SYSTEMDDIR)/snapper-boot.service
++	install -D -m 644 boot.timer $(DESTDIR)$(SYSTEMDDIR)/snapper-boot.timer
++	install -D -m 644 snapperd.service $(DESTDIR)$(SYSTEMDDIR)/snapperd.service
+ endif
+ 
+ if HAVE_ZYPP
+-	install -D -m 644 zypp-plugin.conf $(DESTDIR)/usr/share/snapper/zypp-plugin.conf
++	install -D -m 644 zypp-plugin.conf $(DESTDIR)$(DATADIR)/snapper/zypp-plugin.conf
+ endif
+diff --git a/scripts/Makefile.am b/scripts/Makefile.am
+index 1f8176c2..cf2ffff8 100644
+--- a/scripts/Makefile.am
++++ b/scripts/Makefile.am
+@@ -4,7 +4,10 @@
+ 
+ if HAVE_PAM
+ 
+-pam_snapperdir = /usr/lib/pam_snapper
++PREFIX ?= /usr
++LIBDIR ?= $(PREFIX)/lib
++
++pam_snapperdir = $(LIBDIR)/pam_snapper
+ 
+ pam_snapper_SCRIPTS =			\
+ 	pam_snapper_homeconvert.sh	\
+diff --git a/snapper/Hooks.cc b/snapper/Hooks.cc.in
+similarity index 100%
+rename from snapper/Hooks.cc
+rename to snapper/Hooks.cc.in
+diff --git a/snapper/PluginsImpl.cc b/snapper/PluginsImpl.cc.in
+similarity index 98%
+rename from snapper/PluginsImpl.cc
+rename to snapper/PluginsImpl.cc.in
+index 83b132ea..87f45f7e 100644
+--- a/snapper/PluginsImpl.cc
++++ b/snapper/PluginsImpl.cc.in
+@@ -75,7 +75,7 @@ namespace snapper
+     {
+ #ifdef ENABLE_ROLLBACK
+ 
+-#define GRUB_SCRIPT "/usr/lib/snapper/plugins/grub"
++#define GRUB_SCRIPT "@LIBDIR@/snapper/plugins/grub"
+ 
+ 	if (subvolume == "/" && filesystem->fstype() == "btrfs" && access(GRUB_SCRIPT, X_OK) == 0)
+ 	{
+@@ -218,7 +218,7 @@ namespace snapper
+     {
+ #ifdef ENABLE_ROLLBACK
+ 
+-#define ROLLBACK_SCRIPT "/usr/lib/snapper/plugins/rollback"
++#define ROLLBACK_SCRIPT "@LIBDIR@/snapper/plugins/rollback"
+ 
+ 	// Fate#319108
+ 	if (access(ROLLBACK_SCRIPT, X_OK) == 0)
+diff --git a/snapper/SnapperDefines.h b/snapper/SnapperDefines.h.in
+similarity index 97%
+rename from snapper/SnapperDefines.h
+rename to snapper/SnapperDefines.h.in
+index 6285c156..53060218 100644
+--- a/snapper/SnapperDefines.h
++++ b/snapper/SnapperDefines.h.in
+@@ -37,7 +37,7 @@
+ #define ETC_FILTERS_DIR "/etc/snapper/filters"
+ #define USR_FILTERS_DIR "/usr/share/snapper/filters"
+ 
+-#define PLUGINS_DIR "/usr/lib/snapper/plugins"
++#define PLUGINS_DIR "@LIBDIR@/snapper/plugins"
+ 
+ #define DEV_DIR "/dev"
+ #define DEV_MAPPER_DIR "/dev/mapper"
+diff --git a/zypp-plugin/Makefile.am b/zypp-plugin/Makefile.am
+index 2fd99b8c..07f2a615 100644
+--- a/zypp-plugin/Makefile.am
++++ b/zypp-plugin/Makefile.am
+@@ -6,7 +6,10 @@ SUBDIRS = . testsuite
+ 
+ if HAVE_ZYPP
+ 
+-plugindir = /usr/lib/zypp/plugins/commit
++PREFIX ?= /usr
++LIBDIR ?= $(PREFIX)/lib
++
++plugindir = $(LIBDIR)/zypp/plugins/commit
+ plugin_PROGRAMS = snapper-zypp-plugin
+ 
+ AM_CPPFLAGS = $(DBUS_CFLAGS) $(XML2_CFLAGS) $(JSONC_CFLAGS)
