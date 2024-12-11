@@ -12,6 +12,9 @@ LIC_FILES_CHKSUM = " \
 
 PV = "0.0.1-18"
 SRCREV = "62dac33d771e4a3b14bf740dccf3323793211231"
+# WEBOS_VERSION = "0.0.1-17_79c8e8c4390b97abdf4616474d463babaec40557"
+PV = "0.0.1-17"
+SRCREV = "79c8e8c4390b97abdf4616474d463babaec40557"
 
 SRC_URI = "git://github.com/webosose/com.webos.app.camera;protocol=https;branch=master"
 S = "${WORKDIR}/git"
