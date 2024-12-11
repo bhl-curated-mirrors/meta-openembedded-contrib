@@ -10,18 +10,35 @@ LIC_FILES_CHKSUM = " \
     file://oss-pkg-info.yaml;md5=3072ffcf5bdbbc376ed21c9d378d14d5 \
 "
 
-WEBOS_VERSION = "0.0.1-18_62dac33d771e4a3b14bf740dccf3323793211231"
-PR = "r3"
+PV = "0.0.1-18"
+SRCREV = "62dac33d771e4a3b14bf740dccf3323793211231"
 
-inherit webos_component
-inherit webos_enhanced_submissions
-inherit webos_enactjs_app
-inherit webos_public_repo
-
-SRC_URI = "${WEBOSOSE_GIT_REPO_COMPLETE}"
+SRC_URI = "git://github.com/webosose/com.webos.app.camera;protocol=https;branch=master"
 S = "${WORKDIR}/git"
 
-WEBOS_ENACTJS_APP_ID = "com.webos.app.camera"
+DEPENDS = "enact-dev-native nodejs-native"
 
-# Workaround for network access issue during do_compile task
+export PSEUDO_DEBUG = "nfoPcvdDyerpswikVx"
+
+do_configure() {
+    :
+}
+
 do_compile[network] = "1"
+do_compile() {
+    ${STAGING_BINDIR_NATIVE}/npm install
+}
+
+do_install() {
+    ${STAGING_BINDIR_NATIVE}/node ${STAGING_DIR_NATIVE}/opt/cli/bin/enact.js pack -o ${D}/test
+}
+
+FILES:${PN} += "test"
+
+# to make sure this isn't cached in sstate-cache after showing just a warning in package_qa
+# http://errors.yoctoproject.org/Errors/Details/739941/
+ERROR_QA:append = " host-user-contaminated"
+
+# buildpaths in "sources" tmp/work/core2-64-oe-linux/com.webos.app.minimal/1.0/package/test/main.js.map
+# https://github.com/webpack/webpack/issues/15274
+ERROR_QA:remove = " buildpaths"
